@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Search Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 350px;
+            background: white;
+            border-right: 1px solid #ddd;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        
+        .header {
+            background: #4285f4;
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .login-btn {
+            background: #1a73e8;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .login-btn:hover {
+            background: #1557b0;
+        }
+        
+        .property-list {
+            padding: 0;
+        }
+        
+        .property-item {
+            display: flex;
+            padding: 15px;
+            border-bottom: 2px solid #e0e0e0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .property-item:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .property-item.active {
+            background-color: #e8f0fe;
+        }
+        
+        .property-number {
+            width: 30px;
+            height: 30px;
+            background: #4285f4;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .property-image {
+            width: 80px;
+            height: 60px;
+            background-size: cover;
+            background-position: center;
+            border-radius: 4px;
+            margin-right: 15px;
+            flex-shrink: 0;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+        }
+        
+        .property-image.no-image {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        }
+        
+        .property-details {
+            flex: 1;
+        }
+        
+        .property-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 2px;
+            font-size: 14px;
+        }
+        
+        .property-address {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+        
+        .property-size {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        
+        .property-price {
+            color: #d73527;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            overflow: hidden;
+            z-index: 1000;
+        }
+        
+        .map-type-btn {
+            background: white;
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            border-right: 1px solid #ddd;
+        }
+        
+        .map-type-btn:last-child {
+            border-right: none;
+        }
+        
+        .map-type-btn:hover {
+            background: #f5f5f5;
+        }
+        
+        .map-type-btn.active {
+            background: #e8f0fe;
+            color: #1a73e8;
+        }
+        
+        .badge {
+            display: inline-block;
+            background: #1a73e8;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .badge.industrial {
+            background: #34a853;
+        }
+        
+        .custom-popup .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+        }
+        
+        .popup-content {
+            max-width: 250px;
+            padding: 5px;
+        }
+        
+        .popup-title {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #333;
+            font-weight: bold;
+        }
+        
+        .popup-address {
+            margin: 0 0 4px 0;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .popup-size {
+            margin: 0 0 4px 0;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .popup-price {
+            margin: 0;
+            font-size: 13px;
+            color: #d73527;
+            font-weight: bold;
+        }
+
+        /* Custom marker styles */
+        .custom-div-icon {
+            background: #4285f4;
+            border: 2px solid white;
+            border-radius: 50%;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            line-height: 26px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        /* Loading indicator */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="header">
+                <span>Property Search Results</span>
+                <a href="https://nucleus.tokcommercial.com/map-search" target="_blank" class="login-btn" style="text-decoration: none; display: inline-block;">Login</a>
+            </div>
+            <div class="property-list" id="propertyList">
+                <div class="loading">Loading properties...</div>
+            </div>
+        </div>
+        
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="map-controls">
+                <button class="map-type-btn active" onclick="setMapLayer('streets')">Streets</button>
+                <button class="map-type-btn" onclick="setMapLayer('satellite')">Satellite</button>
+                <button class="map-type-btn" onclick="setMapLayer('terrain')">Terrain</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Sample data - in Power Automate, you'll replace this with your dynamic data
+        const PROPERTY_DATA = [
+            {
+                "pPropertyID": 15214,
+                "PropertyName": "Ten Mile & Deer Flat Land",
+                "StreetNumber": "416-420",
+                "StreetSide": "W.",
+                "StreetName": "Main",
+                "StreetType": "Street",
+                "City": "Kuna",
+                "State": "ID",
+                "ZipCode": "83634",
+                "GeoLatitude": 43.501572,
+                "GeoLongitude": -116.434423,
+                "LotSizeAcres": 1.59,
+                "SalePrice": null,
+                "Listing_Results": [{
+                    "SalePrice": null,
+                    "TotalAC": 1.59
+                }],
+                "tDocsImages": [
+                    {
+                        "FileName": "https://via.placeholder.com/300x200/4285f4/ffffff?text=Property+Image",
+                        "fFileTypeID": 5,
+                        "tLookups_FileLocation": {
+                            "pFileLocationID": 2,
+                            "FileLocationName": "External URL",
+                            "Abbr": "Web"
+                        }
+                    }
+                ]
+            },
+            {
+                "pPropertyID": 15277,
+                "PropertyName": "Crossroads Professional Center",
+                "StreetNumber": "2730",
+                "StreetSide": "E.",
+                "StreetName": "State",
+                "StreetType": "Avenue",
+                "City": "Meridian",
+                "State": "ID",
+                "ZipCode": "83642",
+                "GeoLatitude": 43.613702,
+                "GeoLongitude": -116.360583,
+                "LotSizeAcres": 1.1,
+                "Listing_Results": [{
+                    "SalePrice": 839000,
+                    "TotalAC": 1.1
+                }],
+                "tDocsImages": [
+                    {
+                        "FileName": "https://via.placeholder.com/300x200/34a853/ffffff?text=Commercial+Property",
+                        "fFileTypeID": 3,
+                        "tLookups_FileLocation": {
+                            "pFileLocationID": 2,
+                            "FileLocationName": "External URL",
+                            "Abbr": "Web"
+                        }
+                    }
+                ]
+            },
+            {
+                "pPropertyID": 15445,
+                "PropertyName": "408 Allumbaugh",
+                "StreetNumber": "408",
+                "StreetSide": "N.",
+                "StreetName": "Allumbaugh",
+                "StreetType": "Street",
+                "City": "Boise",
+                "State": "ID",
+                "ZipCode": "83704",
+                "GeoLatitude": 43.608487,
+                "GeoLongitude": -116.2656,
+                "LotSizeAcres": 3.71,
+                "Listing_Results": [{
+                    "SalePrice": 1195000,
+                    "TotalAC": 0.94
+                }],
+                "tDocsImages": []
+            },
+            {
+                "pPropertyID": 15481,
+                "PropertyName": "Route 44",
+                "StreetNumber": "410",
+                "StreetSide": "N.",
+                "StreetName": "Linder",
+                "StreetType": "Road",
+                "City": "Eagle",
+                "State": "ID",
+                "ZipCode": "83616",
+                "GeoLatitude": 43.695169,
+                "GeoLongitude": -116.412561,
+                "LotSizeAcres": 15.53,
+                "Listing_Results": [{
+                    "SalePrice": 7400000,
+                    "TotalAC": 15.53
+                }],
+                "tDocsImages": [
+                    {
+                        "FileName": "https://via.placeholder.com/300x200/d73527/ffffff?text=Development+Land",
+                        "fFileTypeID": 3,
+                        "tLookups_FileLocation": {
+                            "pFileLocationID": 2,
+                            "FileLocationName": "External URL",
+                            "Abbr": "Web"
+                        }
+                    }
+                ]
+            },
+            {
+                "pPropertyID": 15555,
+                "PropertyName": "Parkcenter Development Land",
+                "StreetNumber": "444",
+                "StreetSide": "W.",
+                "StreetName": "Parkcenter",
+                "StreetType": "Blvd",
+                "City": "Boise",
+                "State": "ID",
+                "ZipCode": "83706",
+                "GeoLatitude": 43.599171,
+                "GeoLongitude": -116.187156,
+                "LotSizeAcres": 2.96,
+                "Listing_Results": [{
+                    "SalePrice": 5500000,
+                    "TotalAC": 2.96
+                }],
+                "tDocsImages": [
+                    {
+                        "FileName": "https://via.placeholder.com/300x200/764ba2/ffffff?text=Prime+Location",
+                        "fFileTypeID": 3,
+                        "tLookups_FileLocation": {
+                            "pFileLocationID": 2,
+                            "FileLocationName": "External URL",
+                            "Abbr": "Web"
+                        }
+                    }
+                ]
+            }
+        ];
+
+        let map;
+        let markers = [];
+        let currentLayer;
+        
+        // Map layer configurations
+        const mapLayers = {
+            streets: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }),
+            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles © Esri'
+            }),
+            terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenTopoMap contributors'
+            })
+        };
+
+        function getPropertyImageUrl(property) {
+            if (!property.tDocsImages || property.tDocsImages.length === 0) {
+                return null;
+            }
+            
+            // Look for any image files
+            const imageFile = property.tDocsImages.find(doc => 
+                doc.FileName && (
+                    doc.FileName.toLowerCase().includes('.jpg') || 
+                    doc.FileName.toLowerCase().includes('.jpeg') || 
+                    doc.FileName.toLowerCase().includes('.png') || 
+                    doc.FileName.toLowerCase().includes('.gif') ||
+                    doc.FileName.startsWith('http') // External URLs
+                )
+            );
+            
+            if (imageFile) {
+                return imageFile.FileName;
+            }
+            
+            return null;
+        }
+
+        function initMap() {
+            try {
+                // Initialize map centered on Idaho
+                map = L.map('map').setView([43.6150, -116.2023], 8);
+                
+                // Set default layer
+                currentLayer = mapLayers.streets;
+                currentLayer.addTo(map);
+                
+                // Add markers for each property
+                PROPERTY_DATA.forEach((property, index) => {
+                    if (property.GeoLatitude && property.GeoLongitude) {
+                        addPropertyMarker(property, index + 1);
+                    }
+                });
+
+                // Fit map to show all markers if we have properties
+                if (markers.length > 0) {
+                    const group = new L.featureGroup(markers.map(m => m.marker));
+                    map.fitBounds(group.getBounds().pad(0.1));
+                }
+            } catch (error) {
+                console.error('Error initializing map:', error);
+                document.getElementById('map').innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666;">Error loading map</div>';
+            }
+        }
+
+        function addPropertyMarker(property, number) {
+            try {
+                const listing = property.Listing_Results && property.Listing_Results[0] ? property.Listing_Results[0] : {};
+                
+                // Create custom marker
+                const customIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<span>${number}</span>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                
+                const marker = L.marker([property.GeoLatitude, property.GeoLongitude], {
+                    icon: customIcon
+                }).addTo(map);
+                
+                // Format address
+                const address = `${property.StreetNumber || ''} ${property.StreetSide || ''} ${property.StreetName || ''} ${property.StreetType || ''}, ${property.City}, ${property.State} ${property.ZipCode}`.replace(/\s+/g, ' ').trim();
+                
+                // Format price
+                const price = listing.SalePrice ? `$${listing.SalePrice.toLocaleString()}` : 'Price on Request';
+                
+                // Format size
+                const size = listing.TotalAC ? `${listing.TotalAC} AC` : (property.LotSizeAcres ? `${property.LotSizeAcres} AC` : 'Size TBD');
+                
+                // Create popup content
+                const popupContent = `
+                    <div class="popup-content">
+                        <div class="popup-title">${property.PropertyName}</div>
+                        <div class="popup-address">${address}</div>
+                        <div class="popup-size">${size}</div>
+                        <div class="popup-price">${price}</div>
+                    </div>
+                `;
+                
+                marker.bindPopup(popupContent);
+                
+                // Store reference
+                markers.push({
+                    marker: marker,
+                    property: property,
+                    number: number
+                });
+            } catch (error) {
+                console.error('Error adding marker for property:', property.pPropertyID, error);
+            }
+        }
+
+        function setMapLayer(layerType) {
+            try {
+                // Remove current layer
+                if (currentLayer) {
+                    map.removeLayer(currentLayer);
+                }
+                
+                // Add new layer
+                currentLayer = mapLayers[layerType];
+                currentLayer.addTo(map);
+                
+                // Update button states
+                document.querySelectorAll('.map-type-btn').forEach(btn => btn.classList.remove('active'));
+                event.target.classList.add('active');
+            } catch (error) {
+                console.error('Error changing map layer:', error);
+            }
+        }
+
+        function populatePropertyList() {
+            const listContainer = document.getElementById('propertyList');
+            
+            try {
+                // Clear loading message
+                listContainer.innerHTML = '';
+                
+                if (PROPERTY_DATA.length === 0) {
+                    listContainer.innerHTML = '<div class="loading">No properties found</div>';
+                    return;
+                }
+                
+                PROPERTY_DATA.forEach((property, index) => {
+                    const listing = property.Listing_Results && property.Listing_Results[0] ? property.Listing_Results[0] : {};
+                    const number = index + 1;
+                    
+                    // Format data
+                    const address = `${property.StreetNumber || ''} ${property.StreetSide || ''} ${property.StreetName || ''} ${property.StreetType || ''}, ${property.City}, ${property.State} ${property.ZipCode}`.replace(/\s+/g, ' ').trim();
+                    const price = listing.SalePrice ? `$${listing.SalePrice.toLocaleString()}` : 'Price on Request';
+                    const size = listing.TotalAC ? `${listing.TotalAC} AC` : (property.LotSizeAcres ? `${property.LotSizeAcres} AC` : 'Size TBD');
+                    
+                    // Get property image
+                    const imageUrl = getPropertyImageUrl(property);
+                    
+                    const listItem = document.createElement('div');
+                    listItem.className = 'property-item';
+                    listItem.id = `property-${property.pPropertyID}`;
+                    
+                    // Create image element
+                    let imageElement = '';
+                    if (imageUrl) {
+                        imageElement = `<div class="property-image" style="background-image: url('${imageUrl}')"></div>`;
+                    } else {
+                        imageElement = `<div class="property-image no-image">🏠</div>`;
+                    }
+                    
+                    listItem.innerHTML = `
+                        <div class="property-number">${number}</div>
+                        ${imageElement}
+                        <div class="property-details">
+                            <div class="property-title">${property.PropertyName}</div>
+                            <div class="property-address">${address}</div>
+                            <div class="property-size">${size}</div>
+                            <div class="property-price">${price}</div>
+                        </div>
+                    `;
+                    
+                    // Add click handler
+                    listItem.addEventListener('click', () => {
+                        try {
+                            // Remove active class from all items
+                            document.querySelectorAll('.property-item').forEach(item => item.classList.remove('active'));
+                            listItem.classList.add('active');
+                            
+                            // Center map on property and open popup
+                            if (property.GeoLatitude && property.GeoLongitude) {
+                                map.setView([property.GeoLatitude, property.GeoLongitude], 14);
+                                const markerObj = markers.find(m => m.property.pPropertyID === property.pPropertyID);
+                                if (markerObj) {
+                                    markerObj.marker.openPopup();
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error handling property click:', error);
+                        }
+                    });
+                    
+                    listContainer.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Error populating property list:', error);
+                listContainer.innerHTML = '<div class="loading">Error loading properties</div>';
+            }
+        }
+
+        // Wait for Leaflet to load, then initialize
+        function waitForLeaflet() {
+            if (typeof L !== 'undefined') {
+                populatePropertyList();
+                initMap();
+            } else {
+                setTimeout(waitForLeaflet, 100);
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                waitForLeaflet();
+            } catch (error) {
+                console.error('Error initializing application:', error);
+            }
+        });
+    </script>
+</body>
+</html>
